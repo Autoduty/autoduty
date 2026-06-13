@@ -535,9 +535,9 @@ async function processAll() {
     const st = document.getElementById(`ts${i}`);
     try {
       const b64 = await toBase64(files[i]);
-      const resp = await fetch('/.netlify/functions/anthropic',{
+      const resp = await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','x-api-key':ak,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({
           model:'claude-sonnet-4-6',max_tokens:1200,
           messages:[{role:'user',content:[
