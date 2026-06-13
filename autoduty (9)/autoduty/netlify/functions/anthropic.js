@@ -1,46 +1,54 @@
+const https = require('https');
+
 exports.handler = async function(event) {
+  const CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
+
   if(event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
-      body: ''
-    };
+    return { statusCode: 200, headers: CORS, body: '' };
   }
-
   if(event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method not allowed' };
+    return { statusCode: 405, headers: CORS, body: 'Method not allowed' };
   }
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+  return new Promise((resolve) => {
+    const body = event.body;
+    const options = {
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': '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',
+        'Content-Length': Buffer.byteLength(body),
+        'x-api-key': process.env.ANTHROPIC_KEY,
         'anthropic-version': '2023-06-01'
-      },
-      body: event.body
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        resolve({
+          statusCode: res.statusCode,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+          body: data
+        });
+      });
     });
 
-    const data = await response.json();
+    req.on('error', (err) => {
+      resolve({
+        statusCode: 500,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: { message: err.message } })
+      });
+    });
 
-    return {
-      statusCode: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify(data)
-    };
-  } catch(err) {
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: { message: err.message } })
-    };
-  }
+    req.write(body);
+    req.end();
+  });
 };
